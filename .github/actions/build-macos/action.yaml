@@ -17,7 +17,7 @@ runs:
         go-version: stable
     - name: Make fuseftp-darwin-amd64
       shell: bash
-      run: CGO_ENABLED=1 make fuseftp
+      run: CGO_ENABLED=1 GOARCH=amd64 make fuseftp
     - name: Make fuseftp-darwin-arm64
       shell: bash
       run: CGO_ENABLED=1 GOARCH=arm64 make fuseftp
