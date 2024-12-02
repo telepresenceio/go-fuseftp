@@ -11,11 +11,9 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run build
         uses: ./.github/actions/build-linux
-        with:
-          go-version: '1.20'
       - name: Run lint
         run: make lint
       - name: Update /etc/fuse.conf
@@ -32,11 +30,9 @@ jobs:
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run build
         uses: ./.github/actions/build-macos
-        with:
-          go-version: '1.20'
       - name: Run tests
         # We are not currently running the tests on macOS because the brew install doesn't
         # fix the Kext-Loading. The tests must remain disabled until GitHub provides a macOS
@@ -48,11 +44,9 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run build
         uses: ./.github/actions/build-windows
-        with:
-          go-version: '1.20'
       - name: Run tests
         shell: bash
         run: CGO_ENABLED=0 go test ./...

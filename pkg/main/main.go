@@ -78,12 +78,12 @@ func (s *service) Mount(_ context.Context, rq *rpc.MountRequest) (*rpc.MountIden
 	fi, err := fs.NewFTPClient(ctx, ap, rq.Directory, rq.ReadOnly, rq.ReadTimeout.AsDuration())
 	if err != nil {
 		cancel()
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	host := fs.NewHost(fi, rq.MountPoint)
 	if err := host.Start(ctx, 5*time.Second); err != nil {
 		cancel()
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	id := s.nextID

@@ -1,9 +1,6 @@
 name: Build fuseftp on Linux
 description: Builds the fuseftp binary on Linux amd64 and arm64
 inputs:
-  go-version:
-    description: Version of the go distro, e.g. 1.20
-    required: true
   upload:
     default: false
 runs:
@@ -18,9 +15,9 @@ runs:
       run: |
         Start-Process msiexec -Wait -verb runAs -Args "/i winfsp.msi /passive /qn /L*V winfsp-install.log"
         [Environment]::SetEnvironmentVariable("Path", "C:\\;C:\\Program Files (x86)\\WinFsp\\inc\\fuse;$ENV:Path", "Machine")
-    - uses: actions/setup-go@v3
+    - uses: actions/setup-go@v5
       with:
-        go-version: ${{ inputs.go-version }}
+        go-version: stable
     - name: Make fuseftp-windows-amd64
       shell: bash
       run: CGO_ENABLED=0 make fuseftp
@@ -29,7 +26,7 @@ runs:
       run: CGO_ENABLED=0 GOARCH=arm64 make fuseftp
     - name: Upload binaries
       if: ${{ inputs.upload }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: windows-binaries
         path: build-output/bin
