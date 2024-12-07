@@ -1,15 +1,15 @@
 # go-fuseftp: An FTP based Fuse implementation written in Go
 
-[![Unit tests](https://github.com/datawire/go-fuseftp/actions/workflows/unit_tests.yaml/badge.svg)](https://github.com/datawire/go-fuseftp/actions/workflows/unit_tests.yaml)
-[![Coverage Status](https://coveralls.io/repos/github/datawire/go-fuseftp/badge.svg?branch=master)](https://coveralls.io/github/datawire/go-fuseftp?branch=master)
-[![Go ReportCard](https://goreportcard.com/badge/datawire/go-fuseftp)](http://goreportcard.com/report/datawire/go-fuseftp)
-[![Go Reference](https://pkg.go.dev/badge/github.com/datawire/go-fuseftp.svg)](https://pkg.go.dev/github.com/datawire/go-fuseftp)
-[![Go version](https://img.shields.io/github/go-mod/go-version/datawire/go-fuseftp)](https://golang.org/doc/devel/release.html)
+[![Unit tests](https://github.com/telepresenceio/go-fuseftp/actions/workflows/unit_tests.yaml/badge.svg)](https://github.com/telepresenceio/go-fuseftp/actions/workflows/unit_tests.yaml)
+[![Coverage Status](https://coveralls.io/repos/github/telepresenceio/go-fuseftp/badge.svg?branch=master)](https://coveralls.io/github/telepresenceio/go-fuseftp?branch=master)
+[![Go ReportCard](https://goreportcard.com/badge/telepresenceio/go-fuseftp)](http://goreportcard.com/report/telepresenceio/go-fuseftp)
+[![Go Reference](https://pkg.go.dev/badge/github.com/telepresenceio/go-fuseftp.svg)](https://pkg.go.dev/github.com/telepresenceio/go-fuseftp)
+[![Go version](https://img.shields.io/github/go-mod/go-version/telepresenceio/go-fuseftp)](https://golang.org/doc/devel/release.html)
 
 ## Install ##
 
 ```
-go get -u github.com/datawire/go-fuseftp
+go get -u github.com/telepresenceio/go-fuseftp
 ```
 
 ## Architecture

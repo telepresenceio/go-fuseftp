@@ -4,7 +4,7 @@ package datawire.fuseftp;
 import "google/protobuf/empty.proto";
 import "google/protobuf/duration.proto";
 
-option go_package = "github.com/datawire/go-fuseftp/rpc";
+option go_package = "github.com/telepresenceio/go-fuseftp/rpc";
 
 // The Connector service is responsible for connecting to the traffic manager
 // and manage intercepts. It can only run when a Daemon is running.

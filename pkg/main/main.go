@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/datawire/go-fuseftp/pkg/fs"
-	"github.com/datawire/go-fuseftp/rpc"
+	"github.com/telepresenceio/go-fuseftp/pkg/fs"
+	"github.com/telepresenceio/go-fuseftp/rpc"
 )
 
 //go:embed version.txt

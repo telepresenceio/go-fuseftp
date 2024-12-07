@@ -31,9 +31,9 @@ rpc/fuseftp.pb.go rpc/fuseftp.grpc_pb.go: rpc/fuseftp.proto $(TOOLS)/protoc$(EXE
 	  --plugin=protoc-gen-go=$(TOOLS)/protoc-gen-go$(EXE) \
 	  --plugin=protoc-gen-go-grpc=$(TOOLS)/protoc-gen-go-grpc$(EXE) \
 	  --go_out=./rpc \
-	  --go_opt=module=github.com/datawire/go-fuseftp/rpc \
+	  --go_opt=module=github.com/telepresenceio/go-fuseftp/rpc \
 	  --go-grpc_out=./rpc \
-	  --go-grpc_opt=module=github.com/datawire/go-fuseftp/rpc \
+	  --go-grpc_opt=module=github.com/telepresenceio/go-fuseftp/rpc \
 	  --proto_path=. \
 	  $<
 
