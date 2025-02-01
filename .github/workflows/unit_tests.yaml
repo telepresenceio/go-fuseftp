@@ -20,13 +20,12 @@ jobs:
         run: sudo sh -c 'echo user_allow_other >> /etc/fuse.conf'
       - name: Run tests
         run: make cover
-      - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@v1.0.9
       - name: Coveralls
-        uses: coverallsapp/github-action@v1.1.2
+        uses: coverallsapp/github-action@v2.3.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: coverage.lcov
+          file: coverage.out
+          format: golang
   macos:
     runs-on: macos-latest
     steps:
