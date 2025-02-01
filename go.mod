@@ -7,7 +7,7 @@ require (
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.3
-	github.com/telepresenceio/go-fuseftp/rpc v0.4.6
+	github.com/telepresenceio/go-fuseftp/rpc v0.6.0
 	github.com/winfsp/cgofuse v1.6.0
 	golang.org/x/sys v0.29.0
 	google.golang.org/grpc v1.70.0

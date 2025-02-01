@@ -40,6 +40,9 @@ rpc/fuseftp.pb.go rpc/fuseftp.grpc_pb.go: rpc/fuseftp.proto $(TOOLS)/protoc$(EXE
 BUILD_OUTPUT = build-output
 BIN_OUTPUT = $(BUILD_OUTPUT)/bin
 
+clean:
+	rm -rf $(BUILD_OUTPUT) rpc/*.pb.go
+
 .PHONY: fuseftp
 fuseftp: $(BIN_OUTPUT)/fuseftp-$(GOOS)-$(GOARCH)$(EXE)
 

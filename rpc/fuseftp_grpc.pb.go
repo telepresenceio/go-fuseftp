@@ -20,10 +20,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FuseFTP_Version_FullMethodName      = "/telepresence.fuseftp.FuseFTP/Version"
-	FuseFTP_Mount_FullMethodName        = "/telepresence.fuseftp.FuseFTP/Mount"
-	FuseFTP_Unmount_FullMethodName      = "/telepresence.fuseftp.FuseFTP/Unmount"
-	FuseFTP_SetFtpServer_FullMethodName = "/telepresence.fuseftp.FuseFTP/SetFtpServer"
+	FuseFTP_Version_FullMethodName      = "/telepresenceio.fuseftp.FuseFTP/Version"
+	FuseFTP_Mount_FullMethodName        = "/telepresenceio.fuseftp.FuseFTP/Mount"
+	FuseFTP_Unmount_FullMethodName      = "/telepresenceio.fuseftp.FuseFTP/Unmount"
+	FuseFTP_SetFtpServer_FullMethodName = "/telepresenceio.fuseftp.FuseFTP/SetFtpServer"
 )
 
 // FuseFTPClient is the client API for FuseFTP service.
@@ -225,7 +225,7 @@ func _FuseFTP_SetFtpServer_Handler(srv interface{}, ctx context.Context, dec fun
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var FuseFTP_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "telepresence.fuseftp.FuseFTP",
+	ServiceName: "telepresenceio.fuseftp.FuseFTP",
 	HandlerType: (*FuseFTPServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

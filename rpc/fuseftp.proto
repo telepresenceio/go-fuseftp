@@ -1,5 +1,5 @@
 syntax = "proto3";
-package telepresence.fuseftp;
+package telepresenceio.fuseftp;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/duration.proto";
