@@ -139,7 +139,7 @@ func startFUSEHost(t *testing.T, ctx context.Context, port uint16, dir string, r
 	// Start the client
 	dir = filepath.Join(dir, "mount")
 	require.NoError(t, os.Mkdir(dir, 0755))
-	fsh, err := NewFTPClient(ctx, netip.MustParseAddrPort(fmt.Sprintf("127.0.0.1:%d", port)), remoteDir, readOnly, 60*time.Second)
+	fsh, err := NewFTPClient(ctx.Done(), netip.MustParseAddrPort(fmt.Sprintf("127.0.0.1:%d", port)), remoteDir, readOnly, 60*time.Second)
 	require.NoError(t, err)
 	mp := dir
 	if runtime.GOOS == "windows" {
@@ -153,7 +153,7 @@ func startFUSEHost(t *testing.T, ctx context.Context, port uint16, dir string, r
 
 func TestConnectFailure(t *testing.T) {
 	ctx := testContext(t)
-	_, err := NewFTPClient(ctx, netip.MustParseAddrPort("198.51.100.32:21"), "", false, time.Second)
+	_, err := NewFTPClient(ctx.Done(), netip.MustParseAddrPort("198.51.100.32:21"), "", false, time.Second)
 	require.Error(t, err)
 }
 

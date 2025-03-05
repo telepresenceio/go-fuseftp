@@ -3,7 +3,6 @@ package fs
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"io"
 	"io/fs"
@@ -29,9 +28,6 @@ type fuseImpl struct {
 
 	// connPool is the pool of control connections to the remote FTP server.
 	pool connPool
-
-	// cancel the GC loop
-	cancel context.CancelFunc
 
 	// Mutex protects nextHandle, current, and shuttingDown
 	sync.RWMutex
@@ -114,10 +110,8 @@ type FTPClient interface {
 // NewFTPClient returns an implementation of the fuse.FileSystemInterface that is backed by
 // an FTP server connection tp the address. The dir parameter is the directory that the
 // FTP server changes to when connecting.
-func NewFTPClient(ctx context.Context, addr netip.AddrPort, dir string, ro bool, readTimeout time.Duration) (FTPClient, error) {
-	ctx, cancel := context.WithCancel(ctx)
+func NewFTPClient(done <-chan struct{}, addr netip.AddrPort, dir string, ro bool, readTimeout time.Duration) (FTPClient, error) {
 	f := &fuseImpl{
-		cancel:   cancel,
 		current:  make(map[uint64]*info),
 		readOnly: ro,
 		pool: connPool{
@@ -126,10 +120,11 @@ func NewFTPClient(ctx context.Context, addr netip.AddrPort, dir string, ro bool,
 		},
 	}
 	go func() {
+		defer f.Destroy()
 		ticker := time.NewTicker(stalePeriod)
 		for {
 			select {
-			case <-ctx.Done():
+			case <-done:
 				return
 			case <-ticker.C:
 				f.pool.tidy()
@@ -138,7 +133,6 @@ func NewFTPClient(ctx context.Context, addr netip.AddrPort, dir string, ro bool,
 	}()
 
 	if err := f.pool.setAddr(addr); err != nil {
-		cancel()
 		return nil, err
 	}
 	return f, nil
@@ -191,7 +185,6 @@ func (f *fuseImpl) Destroy() {
 	}
 	wg.Wait()
 	f.pool.quit()
-	f.cancel()
 }
 
 // Flush is a noop in this implementation

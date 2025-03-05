@@ -51,9 +51,7 @@ func (fh *FuseHost) Start(ctx context.Context, startTimeout time.Duration) error
 	go fh.detectFuseStarted(startCtx, started)
 
 	mCh := make(chan bool, 1)
-	fh.wg.Add(1)
 	go func() {
-		defer fh.wg.Done()
 		mCh <- fh.host.Mount(fh.mountPoint, opts)
 	}()
 	go func() {
@@ -66,7 +64,9 @@ func (fh *FuseHost) Start(ctx context.Context, startTimeout time.Duration) error
 		defer fh.wg.Done()
 		select {
 		case <-ctx.Done():
+			logrus.Debug("FuseHost unmounting")
 			fh.host.Unmount()
+			logrus.Debug("FuseHost unmount complete")
 		case mountResult := <-mCh:
 			if !mountResult {
 				logrus.Errorf("fuse mount of %s failed", fh.mountPoint)

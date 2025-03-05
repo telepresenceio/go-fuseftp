@@ -75,7 +75,7 @@ func (s *service) Mount(_ context.Context, rq *rpc.MountRequest) (*rpc.MountIden
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(s.ctx)
-	fi, err := fs.NewFTPClient(ctx, ap, rq.Directory, rq.ReadOnly, rq.ReadTimeout.AsDuration())
+	fi, err := fs.NewFTPClient(ctx.Done(), ap, rq.Directory, rq.ReadOnly, rq.ReadTimeout.AsDuration())
 	if err != nil {
 		cancel()
 		return nil, status.Error(codes.Internal, err.Error())
@@ -94,7 +94,9 @@ func (s *service) Mount(_ context.Context, rq *rpc.MountRequest) (*rpc.MountIden
 			s.Lock()
 			delete(s.mounts, id)
 			s.Unlock()
+			logrus.Debug("FuseHost Stop")
 			host.Stop()
+			logrus.Debug("Cancelling mount context")
 			cancel()
 		},
 	}
@@ -102,11 +104,13 @@ func (s *service) Mount(_ context.Context, rq *rpc.MountRequest) (*rpc.MountIden
 	return &rpc.MountIdentifier{Id: id}, nil
 }
 
-func (s *service) Unmount(_ context.Context, rq *rpc.MountIdentifier) (*emptypb.Empty, error) {
+func (s *service) Unmount(ctx context.Context, rq *rpc.MountIdentifier) (*emptypb.Empty, error) {
+	logrus.Debug("Unmount called")
 	s.Lock()
 	m, ok := s.mounts[rq.Id]
 	s.Unlock()
 	if ok {
+		logrus.Debug("cancelling mount")
 		m.cancel()
 	}
 	return &emptypb.Empty{}, nil
