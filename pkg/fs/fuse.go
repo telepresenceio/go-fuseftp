@@ -51,8 +51,13 @@ func (fh *FuseHost) Start(ctx context.Context, startTimeout time.Duration) error
 	go fh.detectFuseStarted(startCtx, started)
 
 	mCh := make(chan bool, 1)
+	fh.wg.Add(1)
 	go func() {
-		mCh <- fh.host.Mount(fh.mountPoint, opts)
+		defer fh.wg.Done()
+		logrus.Debugf("FuseHost mounting %s", fh.mountPoint)
+		mountResult := fh.host.Mount(fh.mountPoint, opts)
+		logrus.Debugf("FuseHost mount returned %t", mountResult)
+		mCh <- mountResult
 	}()
 	go func() {
 		time.Sleep(100 * time.Millisecond)
