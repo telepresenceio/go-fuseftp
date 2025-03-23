@@ -37,7 +37,7 @@ func (fh *FuseHost) Start(ctx context.Context, startTimeout time.Duration) error
 		"-o", "sync_read",
 		"-o", "allow_root",
 	}
-	if logrus.GetLevel() >= logrus.DebugLevel {
+	if logrus.GetLevel() >= logrus.TraceLevel {
 		opts = append(opts, "-o", "debug")
 	}
 	if runtime.GOOS == "windows" {

@@ -112,6 +112,10 @@ func (s *service) Unmount(ctx context.Context, rq *rpc.MountIdentifier) (*emptyp
 	if ok {
 		logrus.Debug("cancelling mount")
 		m.cancel()
+		select {
+		case <-ctx.Done():
+		case <-m.ftpClient.Done():
+		}
 	}
 	return &emptypb.Empty{}, nil
 }

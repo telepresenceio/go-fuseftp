@@ -14,9 +14,11 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jlaffaye/ftp"
+	"github.com/puzpuzpuz/xsync/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/winfsp/cgofuse/fuse"
 )
@@ -29,21 +31,21 @@ type fuseImpl struct {
 	// connPool is the pool of control connections to the remote FTP server.
 	pool connPool
 
-	// Mutex protects nextHandle, current, and shuttingDown
-	sync.RWMutex
-
 	// Next file handle. File handles are opaque to FUSE, and much faster to use than
 	// the full path
 	nextHandle uint64
 
 	// current maps file handles to info structs
-	current map[uint64]*info
+	current *xsync.MapOf[uint64, *info]
 
 	// readOnly will prohibit all create, open with write access, and writes when set to true.
 	readOnly bool
 
 	// shuttingDown prevent that new handles are added
-	shuttingDown bool
+	shuttingDown atomic.Bool
+
+	// done is closed when Destroy has completed.
+	done chan struct{}
 }
 
 // info holds information about file or directory that has been obtained from
@@ -101,6 +103,9 @@ const stalePeriod = time.Second // Fuse default cache time
 type FTPClient interface {
 	fuse.FileSystemInterface
 
+	// Done is closed by Destroy when it has completed all clean-ups.
+	Done() <-chan struct{}
+
 	// SetAddress will quit open connections, change the address, and reconnect
 	// The method is intended to be used when a FUSE mount must survive a change of
 	// FTP server address.
@@ -112,7 +117,8 @@ type FTPClient interface {
 // FTP server changes to when connecting.
 func NewFTPClient(done <-chan struct{}, addr netip.AddrPort, dir string, ro bool, readTimeout time.Duration) (FTPClient, error) {
 	f := &fuseImpl{
-		current:  make(map[uint64]*info),
+		done:     make(chan struct{}),
+		current:  xsync.NewMapOf[uint64, *info](),
 		readOnly: ro,
 		pool: connPool{
 			dir:     dir,
@@ -158,33 +164,27 @@ func (f *fuseImpl) Create(path string, flags int, _ uint32) (int, uint64) {
 
 // Destroy will drain all ongoing writes, and for each active connection, send the QUIT message to the FTP server and disconnect
 func (f *fuseImpl) Destroy() {
+	if !f.shuttingDown.CompareAndSwap(false, true) {
+		return
+	}
 	log.Debug("Destroy")
+	defer func() {
+		close(f.done)
+		log.Debug("Destroy Complete")
+	}()
 
-	f.Lock()
-	// Prevent new entries from being added
-	f.shuttingDown = true
-	pf := make([]*info, len(f.current))
-	i := 0
-	for _, fe := range f.current {
-		pf[i] = fe
-		i++
-	}
-	f.Unlock()
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(pf))
-	for _, fe := range pf {
-		go func(fe *info) {
-			defer wg.Done()
-			fe.close()
-			f.Lock()
-			delete(f.current, fe.fh)
-			f.Unlock()
-			_ = fe.conn.Quit()
-		}(fe)
-	}
-	wg.Wait()
+	f.current.Range(func(key uint64, fe *info) bool {
+		fe.close()
+		_ = fe.conn.Quit()
+		return true
+	})
+	f.current.Clear()
 	f.pool.quit()
+}
+
+// Done is closed when Destroy is complete.
+func (f *fuseImpl) Done() <-chan struct{} {
+	return f.done
 }
 
 // Flush is a noop in this implementation
@@ -275,7 +275,7 @@ func (f *fuseImpl) Opendir(path string) (int, uint64) {
 // Read requires that fuse is started with -o sync_read to ensure that the
 // read calls arrive in sequence.
 func (f *fuseImpl) Read(path string, buff []byte, ofst int64, fh uint64) int {
-	log.Debugf("Read(%s, sz=%d, off=%d, %d)", path, len(buff), ofst, fh)
+	log.Tracef("Read(%s, sz=%d, off=%d, %d)", path, len(buff), ofst, fh)
 	fe, errCode := f.loadHandle(fh)
 	if errCode < 0 {
 		return errCode
@@ -291,6 +291,7 @@ func (f *fuseImpl) Read(path string, buff []byte, ofst int64, fh uint64) int {
 
 	if fe.rr == nil {
 		// Obtain the ftp.Response. It acts as an io.Reader
+		log.Debugf("ReadStart(%s, sz=%d, off=%d, %d)", path, len(buff), ofst, fh)
 		rr, err := fe.conn.RetrFrom(relpath(path), of)
 		if errCode = f.errToFuseErr(err); errCode < 0 {
 			return errCode
@@ -491,7 +492,7 @@ func (i *info) pipeCopy(of uint64) int {
 // connection established to facilitate the data transfer will remain open
 // until the handle is released by a call to Release.
 func (f *fuseImpl) Write(path string, buf []byte, ofst int64, fh uint64) int {
-	log.Debugf("Write(%s, sz=%d, off=%d, %d)", path, len(buf), ofst, fh)
+	log.Tracef("Write(%s, sz=%d, off=%d, %d)", path, len(buf), ofst, fh)
 	if f.readOnly {
 		return -fuse.EROFS
 	}
@@ -505,9 +506,11 @@ func (f *fuseImpl) Write(path string, buf []byte, ofst int64, fh uint64) int {
 	if fe.writer == nil {
 		// Start the pipe pumper. It ends when the fe.writer closes. That
 		// happens when Release is called.
+		log.Debugf("WriteStart(%s, sz=%d, off=%d, %d)", path, len(buf), ofst, fh)
 		ec = fe.pipeCopy(of)
 	} else if fe.wof != of {
 		// Offset doesn't match, so this isn't a consecutive write operation. Drain and restart.
+		log.Debugf("Closing and reopening writer due to offset mismatch. Expeced %d, got %d", fe.wof, of)
 		_ = fe.writer.Close()
 		fe.wg.Wait()
 		ec = fe.pipeCopy(of)
@@ -528,39 +531,23 @@ func (f *fuseImpl) Write(path string, buf []byte, ofst int64, fh uint64) int {
 }
 
 func (f *fuseImpl) cacheSize() int {
-	f.RLock()
-	sz := len(f.current)
-	f.RUnlock()
-	return sz
+	return f.current.Size()
 }
 
 func (f *fuseImpl) clearPath(p string) {
-	var pf []*info
-	f.RLock()
-	for _, fe := range f.current {
+	f.current.Range(func(key uint64, fe *info) bool {
 		if strings.HasPrefix(fe.path, p) {
-			pf = append(pf, fe)
+			fe.close()
+			f.pool.put(fe.conn)
+			f.current.Delete(key)
 		}
-	}
-	f.RUnlock()
-	for _, fe := range pf {
-		fe.close()
-		f.Lock()
-		delete(f.current, fe.fh)
-		f.Unlock()
-		f.pool.put(fe.conn)
-	}
+		return true
+	})
 }
 
 func (f *fuseImpl) delete(fh uint64) {
-	f.RLock()
-	fe, ok := f.current[fh]
-	f.RUnlock()
-	if ok {
+	if fe, loaded := f.current.LoadAndDelete(fh); loaded {
 		fe.close()
-		f.Lock()
-		delete(f.current, fe.fh)
-		f.Unlock()
 		f.pool.put(fe.conn)
 	}
 }
@@ -625,14 +612,17 @@ func (f *fuseImpl) errToFuseErr(err error) int {
 }
 
 func (f *fuseImpl) getEntry(path string) (e *ftp.Entry, fuseErr int) {
-	f.RLock()
-	for _, fe := range f.current {
+	f.current.Range(func(key uint64, fe *info) bool {
 		if fe.path == path {
-			f.RUnlock()
-			return &fe.entry, 0
+			e = &fe.entry
+			return false
 		}
+		return true
+	})
+	if e != nil {
+		return e, 0
 	}
-	f.RUnlock()
+
 	err := f.withConn(func(conn *ftp.ServerConn) error {
 		var err error
 		e, err = conn.GetEntry(relpath(path))
@@ -642,9 +632,7 @@ func (f *fuseImpl) getEntry(path string) (e *ftp.Entry, fuseErr int) {
 }
 
 func (f *fuseImpl) loadEntry(fh uint64) (*ftp.Entry, int) {
-	f.RLock()
-	fe, ok := f.current[fh]
-	f.RUnlock()
+	fe, ok := f.current.Load(fh)
 	if !ok {
 		return nil, -fuse.ENOENT
 	}
@@ -652,9 +640,7 @@ func (f *fuseImpl) loadEntry(fh uint64) (*ftp.Entry, int) {
 }
 
 func (f *fuseImpl) loadHandle(fh uint64) (*info, int) {
-	f.RLock()
-	fe, ok := f.current[fh]
-	f.RUnlock()
+	fe, ok := f.current.Load(fh)
 	if !ok {
 		return nil, -fuse.ENOENT
 	}
@@ -665,10 +651,7 @@ func (f *fuseImpl) openHandle(path string, flags int) (nfe *info, e *ftp.Entry, 
 	if f.readOnly && flags&(fuse.O_CREAT|fuse.O_TRUNC|fuse.O_APPEND|fuse.O_WRONLY|fuse.O_RDWR) != 0 {
 		return nil, nil, -fuse.EROFS
 	}
-	f.RLock()
-	shuttingDown := f.shuttingDown
-	f.RUnlock()
-	if shuttingDown {
+	if f.shuttingDown.Load() {
 		return nil, nil, -fuse.ECANCELED
 	}
 	conn, err := f.pool.get()
@@ -704,9 +687,7 @@ func (f *fuseImpl) openHandle(path string, flags int) (nfe *info, e *ftp.Entry, 
 		}
 	}
 
-	f.Lock()
-	fh := f.nextHandle
-	f.nextHandle++
+	fh := atomic.AddUint64(&f.nextHandle, 1)
 	nfe = &info{
 		fuseImpl: f,
 		path:     path,
@@ -717,8 +698,7 @@ func (f *fuseImpl) openHandle(path string, flags int) (nfe *info, e *ftp.Entry, 
 	if flags&fuse.O_APPEND == fuse.O_APPEND {
 		nfe.wof = e.Size
 	}
-	f.current[fh] = nfe
-	f.Unlock()
+	f.current.Store(fh, nfe)
 	return nfe, e, 0
 }
 

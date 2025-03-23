@@ -5,6 +5,7 @@ go 1.23.1
 require (
 	github.com/datawire/go-ftpserver v0.1.3
 	github.com/jlaffaye/ftp v0.2.0
+	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.3
 	github.com/telepresenceio/go-fuseftp/rpc v0.6.0
