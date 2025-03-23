@@ -79,7 +79,7 @@ type info struct {
 	entry ftp.Entry
 
 	// The writer is the writer side of an io.Pipe() used when writing data to a remote file.
-	writer io.WriteCloser
+	writer *io.PipeWriter
 
 	// 1 is added to this wg when the reader/writer pipe is created. Wait for it when closing the writer.
 	wg sync.WaitGroup
@@ -471,7 +471,7 @@ func (i *info) pipeCopy(of uint64) int {
 		return errCode
 	}
 	i.wof = of
-	var reader io.ReadCloser
+	var reader *io.PipeReader
 	reader, i.writer = io.Pipe()
 	i.wg.Add(1)
 	go func() {
@@ -480,15 +480,16 @@ func (i *info) pipeCopy(of uint64) int {
 			i.pool.put(conn)
 		}()
 		if err := conn.StorFrom(relpath(i.path), reader, of); err != nil {
-			log.Errorf("error storing: %v", err)
+			// Propagate error to the writer.
+			_ = reader.CloseWithError(err)
 		}
 	}()
 	return 0
 }
 
 // Write writes the given data to a file at the given offset in that file. The data
-// connection that is established to facilitate the data transfer will remain open
-// until the handle is released by a call to Release
+// connection established to facilitate the data transfer will remain open
+// until the handle is released by a call to Release.
 func (f *fuseImpl) Write(path string, buf []byte, ofst int64, fh uint64) int {
 	log.Debugf("Write(%s, sz=%d, off=%d, %d)", path, len(buf), ofst, fh)
 	if f.readOnly {
@@ -502,11 +503,11 @@ func (f *fuseImpl) Write(path string, buf []byte, ofst int64, fh uint64) int {
 
 	var ec int
 	if fe.writer == nil {
-		// start the pipe pumper. It ends when the fe.writer closes. That
-		// happens when Release is called
+		// Start the pipe pumper. It ends when the fe.writer closes. That
+		// happens when Release is called.
 		ec = fe.pipeCopy(of)
 	} else if fe.wof != of {
-		// Drain and restart the write operation.
+		// Offset doesn't match, so this isn't a consecutive write operation. Drain and restart.
 		_ = fe.writer.Close()
 		fe.wg.Wait()
 		ec = fe.pipeCopy(of)
