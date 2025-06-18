@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/jlaffaye/ftp"
-	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/puzpuzpuz/xsync/v4"
 	log "github.com/sirupsen/logrus"
 	"github.com/winfsp/cgofuse/fuse"
 )
@@ -36,7 +36,7 @@ type fuseImpl struct {
 	nextHandle uint64
 
 	// current maps file handles to info structs
-	current *xsync.MapOf[uint64, *info]
+	current *xsync.Map[uint64, *info]
 
 	// readOnly will prohibit all create, open with write access, and writes when set to true.
 	readOnly bool
@@ -118,7 +118,7 @@ type FTPClient interface {
 func NewFTPClient(done <-chan struct{}, addr netip.AddrPort, dir string, ro bool, readTimeout time.Duration) (FTPClient, error) {
 	f := &fuseImpl{
 		done:     make(chan struct{}),
-		current:  xsync.NewMapOf[uint64, *info](),
+		current:  xsync.NewMap[uint64, *info](),
 		readOnly: ro,
 		pool: connPool{
 			dir:     dir,

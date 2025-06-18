@@ -1,9 +1,9 @@
 module local
 
-go 1.21
+go 1.22
 
-toolchain go1.23.2
+toolchain go1.24.4
 
 require google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
 
-require google.golang.org/protobuf v1.35.2 // indirect
+require google.golang.org/protobuf v1.36.6 // indirect
