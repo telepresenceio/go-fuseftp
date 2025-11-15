@@ -7,7 +7,7 @@ require (
 	github.com/puzpuzpuz/xsync/v4 v4.2.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.11.1
-	github.com/telepresenceio/go-ftpserver v0.0.0-20251115215116-e3eac8d99c06
+	github.com/telepresenceio/go-ftpserver v1.0.0
 	github.com/telepresenceio/go-fuseftp/rpc v0.6.7
 	github.com/winfsp/cgofuse v1.6.0
 	golang.org/x/sys v0.38.0
