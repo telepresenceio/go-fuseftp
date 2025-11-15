@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	server "github.com/datawire/go-ftpserver"
+	server "github.com/telepresenceio/go-ftpserver"
 )
 
 func TestMain(m *testing.M) {
