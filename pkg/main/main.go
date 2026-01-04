@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
+	"log/slog"
 	"math"
 	"net"
 	"net/netip"
@@ -12,12 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/telepresenceio/clog"
+	"github.com/telepresenceio/clog/handler"
 	"github.com/telepresenceio/go-fuseftp/pkg/fs"
 	"github.com/telepresenceio/go-fuseftp/rpc"
 )
@@ -54,11 +56,13 @@ func addrPort(ap *rpc.AddressAndPort) (netip.AddrPort, error) {
 
 func (s *service) Mount(_ context.Context, rq *rpc.MountRequest) (*rpc.MountIdentifier, error) {
 	if rq.LogLevel != "" {
-		lvl, err := logrus.ParseLevel(rq.LogLevel)
+		lvl, err := clog.ParseLevel(rq.LogLevel)
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		logrus.SetLevel(lvl)
+		if lsh, ok := slog.Default().Handler().(clog.LevelSetter); ok {
+			lsh.SetLevel(lvl)
+		}
 	}
 
 	s.Lock()
@@ -94,9 +98,9 @@ func (s *service) Mount(_ context.Context, rq *rpc.MountRequest) (*rpc.MountIden
 			s.Lock()
 			delete(s.mounts, id)
 			s.Unlock()
-			logrus.Debug("FuseHost Stop")
+			slog.Debug("FuseHost Stop")
 			host.Stop()
-			logrus.Debug("Cancelling mount context")
+			slog.Debug("Cancelling mount context")
 			cancel()
 		},
 	}
@@ -105,12 +109,12 @@ func (s *service) Mount(_ context.Context, rq *rpc.MountRequest) (*rpc.MountIden
 }
 
 func (s *service) Unmount(ctx context.Context, rq *rpc.MountIdentifier) (*emptypb.Empty, error) {
-	logrus.Debug("Unmount called")
+	slog.Debug("Unmount called")
 	s.Lock()
 	m, ok := s.mounts[rq.Id]
 	s.Unlock()
 	if ok {
-		logrus.Debug("cancelling mount")
+		slog.Debug("cancelling mount")
 		m.cancel()
 		select {
 		case <-ctx.Done():
@@ -151,6 +155,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Listen to unix socket failed: %v\n", err)
 	}
+	slog.SetDefault(slog.New(handler.NewText(handler.EnabledLevel(slog.LevelInfo))))
 	gs := grpc.NewServer()
 	rpc.RegisterFuseFTPServer(gs, &service{
 		mounts: make(map[int32]*mount),

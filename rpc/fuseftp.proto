@@ -58,6 +58,6 @@ message MountRequest {
   // The directory on the FTP server that gets mounted
   string directory = 4;
 
-  // The logrus log level
+  // The slog log level
   string log_level = 5;
 }

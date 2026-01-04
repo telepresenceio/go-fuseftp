@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+
+	"github.com/telepresenceio/clog/log"
 )
 
 func (fh *FuseHost) detectFuseStarted(ctx context.Context, started chan error) {
@@ -40,7 +41,7 @@ func (fh *FuseHost) detectFuseStarted(ctx context.Context, started chan error) {
 		case <-ticker.C:
 			if mountSt, err := statWithTimeout(ctx, fh.mountPoint, 20*time.Millisecond); err != nil {
 				// we don't consider a failure to stat an error here, just a cause for a retry.
-				logrus.Debugf("unable to stat mount point %q: %v", fh.mountPoint, err)
+				log.Debugf("unable to stat mount point %q: %v", fh.mountPoint, err)
 			} else {
 				if st.Ino != mountSt.Ino || st.Dev != mountSt.Dev {
 					return

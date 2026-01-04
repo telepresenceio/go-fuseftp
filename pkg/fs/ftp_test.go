@@ -9,6 +9,7 @@ import (
 	"fmt"
 	fs2 "io/fs"
 	"log"
+	"log/slog"
 	"math"
 	"net"
 	"net/http"
@@ -22,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/telepresenceio/clog/handler"
 	server "github.com/telepresenceio/go-ftpserver"
 )
 
@@ -37,29 +38,8 @@ func TestMain(m *testing.M) {
 		}
 		log.Println(http.ListenAndServe(fmt.Sprintf("localhost:%d", port), nil))
 	}()
+	slog.SetDefault(slog.New(handler.NewText(handler.TimeFormat(""), handler.EnabledLevel(slog.LevelDebug))))
 	m.Run()
-}
-
-func testContext(t *testing.T) context.Context {
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{
-		ForceColors:               false,
-		DisableColors:             true,
-		ForceQuote:                false,
-		DisableQuote:              true,
-		EnvironmentOverrideColors: false,
-		DisableTimestamp:          true,
-		FullTimestamp:             false,
-		TimestampFormat:           "",
-		DisableSorting:            true,
-		SortingFunc:               nil,
-		DisableLevelTruncation:    true,
-		PadLevelText:              false,
-		QuoteEmptyFields:          false,
-		FieldMap:                  nil,
-		CallerPrettyfier:          nil,
-	})
-	return context.Background()
 }
 
 const remoteDir = "exported"
@@ -132,7 +112,7 @@ func TestHelperFTPServer(t *testing.T) {
 	require.NoError(t, err, "unable to parse port")
 	require.NoError(t, server.StartOnPort(ctx, "127.0.0.1", args[3], addr.Port()))
 	<-ctx.Done()
-	logrus.Info("over and out")
+	slog.Info("over and out")
 }
 
 func startFUSEHost(t *testing.T, ctx context.Context, port uint16, dir string, readOnly bool) (FTPClient, *FuseHost, string) {
@@ -152,13 +132,13 @@ func startFUSEHost(t *testing.T, ctx context.Context, port uint16, dir string, r
 }
 
 func TestConnectFailure(t *testing.T) {
-	ctx := testContext(t)
+	ctx := context.Background()
 	_, err := NewFTPClient(ctx.Done(), netip.MustParseAddrPort("198.51.100.32:21"), "", false, time.Second)
 	require.Error(t, err)
 }
 
 func TestBrokenConnection(t *testing.T) {
-	ctx, cancel := context.WithCancel(testContext(t))
+	ctx, cancel := context.WithCancel(context.Background())
 
 	wg := sync.WaitGroup{}
 	serverCtx, serverCancel := context.WithCancel(ctx)
@@ -253,7 +233,7 @@ func hasName(es []fs2.DirEntry, n string) bool {
 }
 
 func TestConnectedToServer(t *testing.T) {
-	ctx, cancel := context.WithCancel(testContext(t))
+	ctx, cancel := context.WithCancel(context.Background())
 
 	wg := sync.WaitGroup{}
 	tmp := t.TempDir()
@@ -497,7 +477,7 @@ func TestConnectedToServer(t *testing.T) {
 }
 
 func TestConnectedToServerReadOnly(t *testing.T) {
-	ctx, cancel := context.WithCancel(testContext(t))
+	ctx, cancel := context.WithCancel(context.Background())
 
 	wg := sync.WaitGroup{}
 	tmp := t.TempDir()
@@ -647,7 +627,7 @@ func TestConnectedToServerReadOnly(t *testing.T) {
 }
 
 func TestManyLargeFiles(t *testing.T) {
-	ctx, cancel := context.WithCancel(testContext(t))
+	ctx, cancel := context.WithCancel(context.Background())
 
 	wg := sync.WaitGroup{}
 	tmp := t.TempDir()

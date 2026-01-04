@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/jlaffaye/ftp"
-	log "github.com/sirupsen/logrus"
+
+	"github.com/telepresenceio/clog/log"
 )
 
 type connList struct {

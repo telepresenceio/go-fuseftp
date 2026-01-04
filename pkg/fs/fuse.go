@@ -2,13 +2,16 @@ package fs
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"runtime"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/winfsp/cgofuse/fuse"
+
+	"github.com/telepresenceio/clog"
+	"github.com/telepresenceio/clog/log"
 )
 
 // FuseHost wraps a fuse.FileSystemHost and adds Start/Stop semantics
@@ -37,7 +40,7 @@ func (fh *FuseHost) Start(ctx context.Context, startTimeout time.Duration) error
 		"-o", "sync_read",
 		"-o", "allow_root",
 	}
-	if logrus.GetLevel() >= logrus.TraceLevel {
+	if log.Enabled(clog.LevelTrace) {
 		opts = append(opts, "-o", "debug")
 	}
 	if runtime.GOOS == "windows" {
@@ -52,7 +55,7 @@ func (fh *FuseHost) Start(ctx context.Context, startTimeout time.Duration) error
 
 	mCh := make(chan bool, 1)
 	go func() {
-		logrus.Debugf("FuseHost mounting %s", fh.mountPoint)
+		log.Debugf("FuseHost mounting %s", fh.mountPoint)
 		mountResult := fh.host.Mount(fh.mountPoint, opts)
 		mCh <- mountResult
 	}()
@@ -65,19 +68,19 @@ func (fh *FuseHost) Start(ctx context.Context, startTimeout time.Duration) error
 	go func() {
 		defer fh.wg.Done()
 		<-ctx.Done()
-		logrus.Debug("FuseHost unmounting")
+		slog.Debug("FuseHost unmounting")
 		fh.host.Unmount()
-		logrus.Debug("FuseHost unmount complete")
+		slog.Debug("FuseHost unmount complete")
 		select {
 		case mountResult := <-mCh:
 			if !mountResult {
-				logrus.Errorf("FuseHost mount of %s failed", fh.mountPoint)
+				log.Errorf("FuseHost mount of %s failed", fh.mountPoint)
 			} else {
-				logrus.Debugf("FuseHost mount of %s ended", fh.mountPoint)
+				log.Debugf("FuseHost mount of %s ended", fh.mountPoint)
 			}
 		case <-time.After(5 * time.Second):
 			// Mount seem to be stuck.
-			logrus.Errorf("fuse mount of %s timed out", fh.mountPoint)
+			log.Errorf("fuse mount of %s timed out", fh.mountPoint)
 		}
 	}()
 	return <-started

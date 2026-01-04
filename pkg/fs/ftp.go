@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"log/slog"
 	"math"
 	"net/netip"
 	"net/textproto"
@@ -19,8 +20,9 @@ import (
 
 	"github.com/jlaffaye/ftp"
 	"github.com/puzpuzpuz/xsync/v4"
-	log "github.com/sirupsen/logrus"
 	"github.com/winfsp/cgofuse/fuse"
+
+	"github.com/telepresenceio/clog/log"
 )
 
 // fuseImpl implements the fuse.FileSystemInterface. The official documentation for the API
@@ -167,10 +169,10 @@ func (f *fuseImpl) Destroy() {
 	if !f.shuttingDown.CompareAndSwap(false, true) {
 		return
 	}
-	log.Debug("Destroy")
+	slog.Debug("Destroy")
 	defer func() {
 		close(f.done)
-		log.Debug("Destroy Complete")
+		slog.Debug("Destroy Complete")
 	}()
 
 	f.current.Range(func(key uint64, fe *info) bool {
@@ -221,7 +223,7 @@ func (f *fuseImpl) Getattr(path string, s *fuse.Stat_t, fh uint64) int {
 // Init starts the garbage collector that removes cached items when they
 // haven't been used for a period of time.
 func (f *fuseImpl) Init() {
-	log.Debug("Init")
+	slog.Debug("Init")
 }
 
 func (f *fuseImpl) Mkdir(path string, mode uint32) int {
@@ -606,7 +608,7 @@ func (f *fuseImpl) errToFuseErr(err error) int {
 		// buf := make([]byte, 0x10000)
 		// n := runtime.Stack(buf, false)
 		// log.Printf("%T %v\n%s", err, err, string(buf[:n]))
-		log.Printf("%T, %v\n", err, err)
+		log.Errorf("%T, %v\n", err, err)
 		return -fuse.EIO
 	}
 }
@@ -707,9 +709,8 @@ func (f *fuseImpl) withConn(fn func(conn *ftp.ServerConn) error) error {
 	if err != nil {
 		return err
 	}
-	err = fn(conn)
-	f.pool.put(conn)
-	return err
+	defer f.pool.put(conn)
+	return fn(conn)
 }
 
 func containsAny(str string, ss ...string) bool {
