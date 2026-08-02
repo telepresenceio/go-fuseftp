@@ -58,13 +58,42 @@ func (cl *connList) size() int {
 	return sz
 }
 
+// defaultUser and defaultPassword are used when the pool hasn't been configured with
+// explicit credentials, reproducing the previous anonymous-only login behavior.
+const (
+	defaultUser     = "anonymous"
+	defaultPassword = "anonymous"
+)
+
 type connPool struct {
 	sync.Mutex
 	addr     netip.AddrPort
 	dir      string
+	user     string
+	password string
 	timeout  time.Duration
 	idleList *connList
 	busyList *connList
+}
+
+// credentials returns the user and password that connect uses to log in to the FTP
+// server, defaulting to the anonymous user when none have been configured.
+func (p *connPool) credentials() (user, password string) {
+	user = p.user
+	if user == "" {
+		user = defaultUser
+	}
+	password = p.password
+	if password == "" {
+		password = defaultPassword
+	}
+	return user, password
+}
+
+// login authenticates the given connection using the pool's configured credentials.
+func (p *connPool) login(conn *ftp.ServerConn) error {
+	user, password := p.credentials()
+	return conn.Login(user, password)
 }
 
 // connect returns a new connection without using the pool. Use get instead of connect.
@@ -86,7 +115,7 @@ func (p *connPool) connect() (*ftp.ServerConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = conn.Login("anonymous", "anonymous"); err != nil {
+	if err = p.login(conn); err != nil {
 		return nil, err
 	}
 	if p.dir != "" {
