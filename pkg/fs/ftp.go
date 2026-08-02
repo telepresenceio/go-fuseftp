@@ -116,15 +116,41 @@ type FTPClient interface {
 
 // NewFTPClient returns an implementation of the fuse.FileSystemInterface that is backed by
 // an FTP server connection tp the address. The dir parameter is the directory that the
-// FTP server changes to when connecting.
+// FTP server changes to when connecting. The connection logs in as the anonymous user.
 func NewFTPClient(done <-chan struct{}, addr netip.AddrPort, dir string, ro bool, readTimeout time.Duration) (FTPClient, error) {
+	return newFTPClient(done, addr, dir, ro, readTimeout, "", "")
+}
+
+// NewFTPClientWithAuth is like NewFTPClient but logs in using the given user and password
+// instead of the anonymous user.
+func NewFTPClientWithAuth(
+	done <-chan struct{},
+	addr netip.AddrPort,
+	dir string,
+	ro bool,
+	readTimeout time.Duration,
+	user, password string,
+) (FTPClient, error) {
+	return newFTPClient(done, addr, dir, ro, readTimeout, user, password)
+}
+
+func newFTPClient(
+	done <-chan struct{},
+	addr netip.AddrPort,
+	dir string,
+	ro bool,
+	readTimeout time.Duration,
+	user, password string,
+) (FTPClient, error) {
 	f := &fuseImpl{
 		done:     make(chan struct{}),
 		current:  xsync.NewMap[uint64, *info](),
 		readOnly: ro,
 		pool: connPool{
-			dir:     dir,
-			timeout: readTimeout,
+			dir:      dir,
+			user:     user,
+			password: password,
+			timeout:  readTimeout,
 		},
 	}
 	go func() {

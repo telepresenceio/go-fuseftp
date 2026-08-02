@@ -137,6 +137,55 @@ func TestConnectFailure(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestNewFTPClientWithAuth(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg := sync.WaitGroup{}
+	tmp := t.TempDir()
+	_, port := startFTPServer(t, ctx, tmp, &wg)
+	require.NotEqual(t, uint16(0), port)
+	t.Cleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+
+	addr := netip.MustParseAddrPort(fmt.Sprintf("127.0.0.1:%d", port))
+
+	// The embedded test server only ever registers the "anonymous" user, but it accepts
+	// any password for that user. Logging in with a non-default password therefore still
+	// proves that the credentials configured on the client reach the server's Login call.
+	fsh, err := NewFTPClientWithAuth(ctx.Done(), addr, remoteDir, false, time.Second, "anonymous", "s3cr3t-session-token")
+	require.NoError(t, err)
+	fsh.(*fuseImpl).Destroy()
+}
+
+func TestConnPoolCredentialsSurviveSetAddr(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg := sync.WaitGroup{}
+	tmp1, tmp2 := t.TempDir(), t.TempDir()
+	_, port1 := startFTPServer(t, ctx, tmp1, &wg)
+	require.NotEqual(t, uint16(0), port1)
+	_, port2 := startFTPServer(t, ctx, tmp2, &wg)
+	require.NotEqual(t, uint16(0), port2)
+	t.Cleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+
+	p := &connPool{user: "anonymous", password: "s3cr3t-session-token"}
+	require.NoError(t, p.setAddr(netip.MustParseAddrPort(fmt.Sprintf("127.0.0.1:%d", port1))))
+	assert.Equal(t, "anonymous", p.user)
+	assert.Equal(t, "s3cr3t-session-token", p.password)
+
+	// Simulate a pod change: the address changes but the credentials must survive.
+	require.NoError(t, p.setAddr(netip.MustParseAddrPort(fmt.Sprintf("127.0.0.1:%d", port2))))
+	assert.Equal(t, "anonymous", p.user)
+	assert.Equal(t, "s3cr3t-session-token", p.password)
+
+	p.quit()
+}
+
 func TestBrokenConnection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
